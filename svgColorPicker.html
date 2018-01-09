@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 
 <!--
-SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17 
+
+    http://www.imakeforms.com
+
+    SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17 
+
 -->
 
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en"></html>
@@ -48,8 +52,6 @@ SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17
 </head>
 
 <body>
-
-    <!-- inspired by ColorSVG : http://dolfelt.github.io/color-svg/#demo -->
 
     <div style="position:relative; padding-top:130px;">
         <div style="position:absolute; left:170px; top:200px;">
@@ -387,8 +389,6 @@ SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17
             var _controls = T.svg.selectAll('.fakeColPicContols');
             _controls.attr('stroke', '#ffffff').attr('stroke-width', 1);
 
-            // Example: http://jsfiddle.net/Z37FF/1/
-            // ------------------------------------------------------------------
             _controls.on('mousedown', function(){
                 d3.event.preventDefault();
                 d3.event.stopPropagation();
@@ -410,10 +410,6 @@ SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17
                     var _angle = (Math.atan2(_deltaY, _deltaX) * 180 / Math.PI);
 
                     _this.attr('transform', 'rotate(' + (_addAngle + _angle) + ')');
-
-                    // At the first, it's located 180 as the first value of light is 0.5. Below is to calculate the correct degree
-                    // Reference to get 360 degree value: 
-                    // https://stackoverflow.com/questions/1311049/how-to-map-atan2-to-degrees-0-360
                     var _realDegree = (_angle + 90 + 360) % 360;
                     var _tempAngle = numberPrecision(_realDegree / 360, 2);
 
@@ -454,14 +450,6 @@ SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17
                 ;
             
             var _centerGroup = this.pg.append('g').attr('class', 'colPicCenterDrawGroup');
-
-            // To view clearly the transparent symbol in the background in case of no initial RGB color. <--- This makes a problem when opacity is changed to 0 from some value at the first. And it is not needed as long as the border of color center exists
-            /*
-            if(checkNullUndefinedSpace(T.color.color))
-                _centerGroup.append('circle').attr('cx', 0).attr('cy', 0)
-                    .attr('r', _centerRadius).attr('fill', '#f7f7f7')
-            ;
-            */
 
             // Add transparent line in the background to show opacity and transparency
             for(var _int= 8, _i = (0 - _width); _i < _width; _i += _int){
@@ -518,8 +506,6 @@ SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17
             return _selected;
         };
 
-        // I do not know why clippath transition is not working when it's applied multiple times
-        // First trial of applying the clippath was working but not after that.
         // Below is to provide the clippath everytime needed
         T.show = function(){
             var _kkk = getUniqueID();
