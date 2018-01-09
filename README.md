@@ -1,2 +1,2 @@
 # SVG-Color-Picker
-New color picker control by using SVG features
+Introducing the new SVG color picker.I have attached a working example to make a SVG color picker. Below is an example image:
