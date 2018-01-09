@@ -29,4 +29,4 @@ None
 
   
 ## Copyright and license
-No copyright and license
+MIT license
