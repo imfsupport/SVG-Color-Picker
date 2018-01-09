@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+
+<!--
+SVG Color Picker Version 1 - iMFSupport - 5/01/2018 11:17 
+-->
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en"></html>
+<head>
+    <meta charset="utf-8">
+    <script src="jQuery_3_1.js"></script>
+    <script src="d3.js"></script>
+    <script src="utility.js"></script>
+
+    <style>
+        * {
+            font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+            font-size: 20px;
+        }
+
+        .label{
+            color:#999999;
+            padding-right:20px;
+        }
+
+        .picSection{
+            display: inline-block;
+            margin-left: 10px;
+            vertical-align: top;
+            position: relative;
+        }
+
+        input[type="text"]{
+            border: solid 0px #ffffff;
+            border-bottom: solid 1px #999999;
+            text-align: center;
+            padding:5px;
+            color:#787878;
+        }
+
+        /* Colir picker component style */
+        .svgColPic{ overflow: visible; }
+        .svgColPicHover{ cursor: pointer; }
+        .svgColPicHoverImage{ cursor: crosshair; }
+        .svgColPicNoStroke { stroke: none; }
+        .svgColPicEventNone { pointer-events: none; }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- inspired by ColorSVG : http://dolfelt.github.io/color-svg/#demo -->
+
+    <div style="position:relative; padding-top:130px;">
+        <div style="position:absolute; left:170px; top:200px;">
+            <span class="label">Forecolor:</span>
+            <input id="input1" type="text" size="8" maxlength="7" />
+        </div>
+
+        <span class="label">Backcolor:</span>
+        <input id="input2" type="text" size="8" maxlength="7" />
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        var _input1 = $('#input1');
+        var _input2 = $('#input2');
+
+        testPicker(_input1, 15, 80, 20, null);
+        testPicker(_input2, 20, 130, 30, 'rgba(250, 50, 0, 0.7)');
+
+        var _kkk = { a: 'previous value', b: 123456 };
+
+        _input1.trigger('colorUpdatedByForce', 'transparent');
+
+        _input1.on('change', function(){
+            var _color = _input1.triggerHandler('getColorString');
+            console.log('forecolor=', _kkk, _color);
+        });
+
+        _input2.on('change', function(){
+            var _color = _input2.triggerHandler('getColorString');
+            console.log('backcolor=', _kkk, _color);
+        });
+    });
+
+    var gImfColorPickerZindexDynamic = 10000;
+
+    var testPicker = function(
+                                // Binding input control. jQuery object. The parent element of this should have a position property in CSS.
+                                _applInputControl,
+                                // Radius for center color circle
+                                _centerRadius,
+                                // Radius for whole control
+                                _radius,
+                                // Color band tickness
+                                _colorBandTickness,
+                                // transparent or rgba(200, 200, 200, 0.5)
+                                _defaultRgba,
+                                )
+    {
+        if(_applInputControl == null) return;
+
+        var _applDIV = null;
+
+        var T = {};
+        T.svg = null;
+        // Put all drawing to the pg(parent group) and apply clippath animation to parent group
+        T.pg = null;
+        T.uniqueID = getUniqueID();
+        T.colorBandThickness = _colorBandTickness;
+
+        // Selected color information - key value for the selected color
+        // --------------------------------------------------------------
+        T.color = [0, 0, 0, 0]; // T[3] = alpha
+
+        // Below is to disable the color selection when light and opacity controls are in operation
+        // and also when mouse is hovering over the band color
+        T.inControlOperation = false;
+        T.light = 0.5;
+
+        T.init = function(){
+            // Set the default color
+            if(checkNullUndefinedSpace(_defaultRgba)) _defaultRgba = 'transparent';
+            T.color = color2rgbaArray(_defaultRgba);
+
+            // Add a DIV which will contain the SVG control
+            // var _position = _applInputControl.offset();  // Absolute position
+            var _position = _applInputControl.position();   // Relative to its parent
+            var _parent = _applInputControl.parent();
+
+            _applDIV = $('<div style="position:absolute; top:' + _position.top + 'px;left:' + (_position.left + _applInputControl.outerWidth() + 10) + 'px; width:0px; height:0px; overflow:visible;"></div>');
+
+            _parent.append(_applDIV);
+
+            // T.svg is not transforming and it has a size with center color size because
+            // only center part is shown before mouse over the control
+            T.svg = d3.select(_applDIV[0]).append('svg')
+                .attr('width', (2 * _centerRadius)).attr('height', (2 * _centerRadius))
+                .attr('class', 'svgColPic')
+                .attr('viewBox', '0 0 ' + (2 * _centerRadius) + ' ' + (2 * _centerRadius))
+                .attr('preserveAspectRatio', 'none')
+            ;
+
+            // Making a parent group to draw everything and will apply clippath transition to this
+            T.pg = T.svg.append('g').attr('class', 'colPicDrawParentGroup')
+                    .attr('transform','translate(' + _centerRadius + ',' + _centerRadius + ')')
+                    ;
+
+            // Add DEFS
+            var _defs = this.svg.append('defs');
+            // Define the clip path for image part
+            _defs.append('clipPath')
+                .attr('id', 'colPicImageClipPath' + T.uniqueID)
+                .append('circle')
+                .attr('cx', 0).attr('cy', 0)
+                .attr('r', (_radius - T.colorBandThickness))
+            ;
+
+            // Define the clip path for center circle
+            _defs.append('clipPath')
+                .attr('id', 'colPicCenterClipPath' + T.uniqueID)
+                .append('circle')
+                .attr('cx', 0).attr('cy', 0)
+                .attr('r', _centerRadius)
+                .attr('class', 'svgColPicNoStroke')
+            ;
+
+            // Drop shadow filter for the center part
+            var _filter = _defs.append('filter').attr('id', 'colPicCenterDropShadow' + T.uniqueID)
+                            .attr('x', '-30%').attr('y', '-30%')
+                            .attr('width', '180%')
+                            .attr('height', '180%')
+                            ;
+
+            _filter.append('feDropShadow')
+                .attr('dx', 0).attr('dy', 0)
+                .attr('stdDeviation', 3)
+                .attr('flood-color', '#555555')
+                .attr('flood-opacity', 1)
+                ;
+
+            // Initialising the input contorl. Detect Enter key and set the color
+            _applInputControl.keydown(function(_event){
+                if (_event.keyCode  == 13) {
+                    var _colInput = $(this).val().match(/^#(?:[0-9a-f]{3}){1,2}$/i);
+                    if(_colInput == null){
+                        alert('Not a valid color code. It should be like "#01aecf"');
+                        return;
+                    }
+
+                    T.setColor(_colInput[0]);
+                }
+            });
+        };
+
+        T.drawImage = function(){
+            var _unique = getUniqueID();
+            var _imgGroup = this.pg.append('g');
+            var _rRadius = _radius - T.colorBandThickness;
+
+            var _img = _imgGroup.append('image')
+                            .attr('class', 'svgColPicHoverImage')
+                            .attr('x', 0 - _rRadius)
+                            .attr('y', 0 - _rRadius)
+                            .attr('width', (2 * _rRadius))
+                            .attr('height', (2 * _rRadius))
+                            .attr('xlink:href', 'colorPicker_1.jpg')
+            ;
+
+            // Apply the clip path to the image group
+            _imgGroup.attr('clip-path', 'url(#colPicImageClipPath' + T.uniqueID + ')');
+
+            // Add a DIV which contains a Canvas for reading a pixel color when mouse is hovering an image
+            _applDIV.append($('<div class="' + 'fakeColPicCanvasConatiner' + T.uniqueID + '" style="position:absolute; top:-120px; left:-120px; width:1px; height:1px; overflow:hidden; display:none; "></div>'));
+
+            var _cvsImg = d3.select('.fakeColPicCanvasConatiner' + T.uniqueID).append('canvas')
+                .attr('width', (2 * _rRadius))
+                .attr('height',(2 * _rRadius))
+                ;
+            
+            var _context = _cvsImg.node().getContext('2d');
+
+            var _image = new Image();
+
+            _image.onload = function(){
+                _context.drawImage(_image, 0, 0, _image.width, _image.height, 0, 0, (2*_rRadius), (2*_rRadius));
+            }
+
+            _image.src = 'colorPicker_1.jpg';
+
+            // Get the mouse position when it hovers the image and get the color from the canvas
+            _img.on('mouseenter', function(){
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+                if(T.inControlOperation) return;
+
+                _img.on('mousemove', function(){
+                    d3.event.preventDefault();
+                    d3.event.stopPropagation();
+
+                    var _newPosition = d3.mouse(this);
+                    var _rgbArr = _context
+                            .getImageData(_newPosition[0] + _rRadius, _newPosition[1] + _rRadius, 1, 1)
+                            .data
+                            ;
+
+                    var _rgbHex = rgbToHex_1(_rgbArr[0], _rgbArr[1], _rgbArr[2]);
+                    T.showHoverColor(_rgbHex);
+                });
+
+                _img.on('mousedown', function(){
+                    d3.event.preventDefault();
+                    d3.event.stopPropagation();
+                    var _newPosition = d3.mouse(this);
+                    var _rgbArr = _context
+                            .getImageData(_newPosition[0] + _rRadius, _newPosition[1] + _rRadius, 1, 1)
+                            .data
+                            ;
+
+                    var _rgbHex = rgbToHex_1(_rgbArr[0], _rgbArr[1], _rgbArr[2]);
+                    T.setColor(_rgbHex);
+                });
+            });
+
+            _img.on('mouseleave', function(){
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+                _img.on('mousemove', null);
+                _img.on('mousedown', null);
+            });
+        };
+
+        T.drawColorBand = function(){
+            var _bandGroup = this.pg.select('.fakeColPicBandGroup');
+
+            if(_bandGroup.empty())
+                _bandGroup = this.pg.append('g').attr('class', 'fakeColPicBandGroup');
+
+            // var _colorArc = d3.arc().innerRadius(_radius - T.colorBandThickness).outerRadius(_radius);
+            var _colorArc = d3.arc().innerRadius(_radius - T.colorBandThickness - 20).outerRadius(_radius);
+
+            for(var _i=0; _i < 360; _i += 3){
+                let _lvHslValue = _i;
+                _colorArc.startAngle(_i * (Math.PI/180)).endAngle((_i + 4) * (Math.PI/180));
+
+                var _colPicBandEle = _bandGroup.select('.fakeColPicBandId' + _i);
+                if(_colPicBandEle.empty()){
+                    _colPicBandEle= _bandGroup.append('path')
+                                    .attr('class', function(){ return 'svgColPicHover svgColPicNoStroke fakeColPicBandId' + _i; })
+                                    .attr('d', _colorArc)
+                                    .attr('stroke-width', 0)
+                                    ;
+
+                    _colPicBandEle.on('mouseenter', function(){
+                        d3.event.preventDefault();
+                        d3.event.stopPropagation();
+                        if(T.inControlOperation) return;
+
+                        d3.select(this).transition().duration(200).attr('transform', 'scale(1.15)');
+
+                        var _rgbHex = hslToHex(_lvHslValue, 1*100, T.light*100);
+                        T.showHoverColor(_rgbHex);
+                    });
+
+                    _colPicBandEle.on('mouseleave', function(){
+                        d3.event.preventDefault();
+                        d3.event.stopPropagation();
+                        if(T.inControlOperation) return;
+                        d3.select(this).transition().duration(200).attr('transform', 'scale(1)');
+                    });
+
+                    _colPicBandEle.on('mousedown', function(){
+                        d3.event.preventDefault();
+                        d3.event.stopPropagation();
+                        var _rgbHex = hslToHex(_lvHslValue, 1*100, T.light*100);
+                        T.setColor(_rgbHex);
+                    });
+                }
+
+                _colPicBandEle
+                    .attr('opacity', T.color[3])
+                    .attr('fill', function() {
+                        return d3.hsl(
+                            // Hue - color. Degree on the color wheel, 0 to 360. 0:red, 120:green, 240:blue
+                            _lvHslValue,
+                            // Saturation - chae-do, 0% means a shade of gray and 100% is the full color
+                            1,
+                            // Lightness. 0% is black, 100% is white       
+                            T.light
+                        );
+                });
+            }
+        };
+
+        T.showHoverColor = function(_rgbHex){
+            var _preview = T.svg.select('.colPicCenterDownHalf');
+            _preview.attr('fill', _rgbHex);
+            _preview.attr('opacity', T.color[3]);
+        };
+
+        T.setColor = function(_rgbHex){
+            var _preview = T.svg.select('.colPicCenterUpHalf');
+            _preview.attr('fill', _rgbHex);
+            _preview.attr('opacity', T.color[3]);
+            // T.hide();
+
+            var _tempOpacity = T.color[3];
+            T.color = color2rgbaArray(_rgbHex);
+            T.color[3] = _tempOpacity;
+
+            if(_applInputControl != null){
+                _applInputControl.val(_rgbHex);
+                _applInputControl.css('background-color', 'rgba(' + (T.color.join(',')) + ')');
+                _applInputControl.trigger('change');
+            }
+        };
+
+        T.opacityControlMove = function(){
+            var _realDegree = T.color[3] * 360;
+            var _angle = (_realDegree % 360) - (90 + 360);
+
+            T.pg.select('.colPicOpacityControl')
+                .attr('transform', 'rotate(' + (90 + _angle) + ')')
+                ;
+        };
+
+        T.drawControls = function(){
+            var _controlRadius = 7;
+            var _bandRadius = _radius - T.colorBandThickness;
+            var _controlGroup = this.pg.append('g').attr('class', 'colPicControlGroup');
+
+            // Opacity control button
+            var _opacityBtn = _controlGroup.append('circle')
+                            .attr('cx', 0).attr('cy', -_bandRadius)
+                            .attr('r', _controlRadius).attr('fill', '#03a9f4')
+                            .attr('class', 'svgColPicHover fakeColPicContols colPicOpacityControl')
+                            ;
+
+            // Light control button
+            var _lightBtn = _controlGroup.append('circle')
+                            .attr('cx', 0).attr('cy', _bandRadius)
+                            .attr('r', _controlRadius).attr('fill', '#4caf50')
+                            .attr('class', 'svgColPicHover fakeColPicContols')
+                            ;
+            
+            var _controls = T.svg.selectAll('.fakeColPicContols');
+            _controls.attr('stroke', '#ffffff').attr('stroke-width', 1);
+
+            // Example: http://jsfiddle.net/Z37FF/1/
+            // ------------------------------------------------------------------
+            _controls.on('mousedown', function(){
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+                T.inControlOperation = true;
+
+                var _initialPosition = d3.mouse(T.svg.node());
+                var _this = d3.select(this);
+                var _center = { x: 0 + _centerRadius, y: 0 + _centerRadius };
+                var _isOpacityControl = d3.select(this).classed('colPicOpacityControl');
+
+                T.svg.on('mousemove', function(){
+                    d3.event.preventDefault();
+                    d3.event.stopPropagation();
+
+                    var _newPosition = d3.mouse(this);
+                    var _addAngle = _isOpacityControl ? 90 : -90;
+                    var _deltaX = _newPosition[0] - _center.x;
+                    var _deltaY = _newPosition[1] - _center.y;
+                    var _angle = (Math.atan2(_deltaY, _deltaX) * 180 / Math.PI);
+
+                    _this.attr('transform', 'rotate(' + (_addAngle + _angle) + ')');
+
+                    // At the first, it's located 180 as the first value of light is 0.5. Below is to calculate the correct degree
+                    // Reference to get 360 degree value: 
+                    // https://stackoverflow.com/questions/1311049/how-to-map-atan2-to-degrees-0-360
+                    var _realDegree = (_angle + 90 + 360) % 360;
+                    var _tempAngle = numberPrecision(_realDegree / 360, 2);
+
+                    if(_isOpacityControl){
+                        T.color[3] = (_tempAngle > 0.95 ? 1 : _tempAngle);
+                    }
+                    else{
+                        if(_tempAngle < 0.1) _tempAngle = 0.1;
+                        if(_tempAngle > 0.9) _tempAngle = 0.9;
+                        if(_tempAngle > 0.45 && _tempAngle < 0.55) _tempAngle = 0.5;
+                        T.light = _tempAngle;
+                    }
+
+                    T.drawColorBand();
+                });
+
+                T.svg.on('mouseup', function(){
+                    d3.event.preventDefault();
+                    d3.event.stopPropagation();
+                    T.svg.on('mousemove', null);
+                    T.svg.on('mouseup', null);
+                    T.inControlOperation = false;
+                });
+            });
+        };
+
+        T.drawCenter = function(){
+            var _width = 2 * _centerRadius;
+
+            // Just to apply the drop shadow effect to the center part
+            this.pg.append('circle')
+                .attr('cx', 0).attr('cy', 0)
+                .attr('r', _centerRadius)
+                .attr('fill', '#ffffff')
+                .attr('stroke', '#cccccc')
+                .style('filter', 'url(#colPicCenterDropShadow' + T.uniqueID + ')')
+                .attr('stroke-width', 1)
+                ;
+            
+            var _centerGroup = this.pg.append('g').attr('class', 'colPicCenterDrawGroup');
+
+            // To view clearly the transparent symbol in the background in case of no initial RGB color. <--- This makes a problem when opacity is changed to 0 from some value at the first. And it is not needed as long as the border of color center exists
+            /*
+            if(checkNullUndefinedSpace(T.color.color))
+                _centerGroup.append('circle').attr('cx', 0).attr('cy', 0)
+                    .attr('r', _centerRadius).attr('fill', '#f7f7f7')
+            ;
+            */
+
+            // Add transparent line in the background to show opacity and transparency
+            for(var _int= 8, _i = (0 - _width); _i < _width; _i += _int){
+                _centerGroup.append('line')
+                    .attr('x1', (_i + _int + 10)).attr('y1', (0-_centerRadius))
+                    .attr('x2', _i).attr('y2', _centerRadius)
+                    .attr('stroke', '#dfdfdf').attr('stroke-width', 3)
+                    ;
+            }
+
+            var _halfDown = T.centerHalf('colPicCenterDownHalf', 90, 270);
+            var _halfUp = T.centerHalf('colPicCenterUpHalf', -90, 90);
+
+            var _hex = rgbToHex_1(T.color[0], T.color[1], T.color[2]);
+            _halfUp.attr('fill', _hex);
+            _halfUp.attr('opacity', T.color[3]);
+            _halfDown.attr('fill', 'transparent');
+
+            // Apply the clip path to the center circle group
+            _centerGroup.attr('clip-path', 'url(#colPicCenterClipPath' + T.uniqueID + ')');
+
+            // Apply event in case of mouse enter or leave
+            T.svg.on('mouseenter', function(){
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+                T.show();
+            });
+
+            T.svg.on('mouseleave', function(){
+                d3.event.preventDefault();
+                d3.event.stopPropagation();
+                T.hide();
+            });
+        };
+
+        T.centerHalf = function(_className, _startAngle, _endAngle){
+            var _colorArc = d3.arc().innerRadius(0).outerRadius(_centerRadius + 3);
+            _colorArc.startAngle(_startAngle * (Math.PI / 180)).endAngle(_endAngle * (Math.PI / 180));
+
+            var _centerGroup = T.pg.select('.colPicCenterDrawGroup');
+
+            var _selected = _centerGroup.select('.' + _className);
+
+            if(_selected.empty()){
+                _selected = _centerGroup.append('path')
+                            .attr('class', 'svgColPicNoStroke svgColPicHover ' + _className)
+                            .attr('d', _colorArc)
+                            ;
+
+                return _selected;
+            }
+
+            _selected.transition().duration(300).attr('d', _colorArc);
+            return _selected;
+        };
+
+        // I do not know why clippath transition is not working when it's applied multiple times
+        // First trial of applying the clippath was working but not after that.
+        // Below is to provide the clippath everytime needed
+        T.show = function(){
+            var _kkk = getUniqueID();
+            var _defs = this.svg.select('defs');
+            // Define the clip path for showing the control
+            _defs.append('clipPath')
+                .attr('id', 'colPicShowClipPath' + _kkk)
+                .append('circle')
+                .attr('cx', 0).attr('cy', 0)
+                .attr('r', _centerRadius)
+                .attr('class', 'svgColPicNoStroke')
+                .transition().ease(d3.easeBack).duration(500)
+                .attr('r', _radius + 60)    // Extra radius needed for hover effect
+            ;
+
+            this.pg.attr('clip-path', 'url(#colPicShowClipPath' + _kkk + ')');
+
+            // Show center down half
+            T.centerHalf('colPicCenterUpHalf', -90, 90);
+            T.centerHalf('colPicCenterDownHalf', 90, 270);
+
+            _applDIV.css('z-index', gImfColorPickerZindexDynamic);
+            gImfColorPickerZindexDynamic++;
+        };
+
+        T.hide = function(){
+            var _kkk = getUniqueID();
+            var _defs = this.svg.select('defs');
+            // Define the clip path for showing the control
+            _defs.append('clipPath')
+                .attr('id', 'colPicHideClipPath' + _kkk)
+                .append('circle')
+                .attr('cx', 0).attr('cy', 0)
+                .attr('r', _radius + 60)
+                .attr('class', 'svgColPicNoStroke')
+                .transition().ease(d3.easeBack).duration(500)
+                .attr('r', _centerRadius + 0.5)    // Extra radius needed for hover effect
+            ;
+
+            // Below is to prevent an event to be propagated
+            this.pg.classed('svgColPicEventNone', true);
+            this.pg.attr('clip-path', 'url(#colPicHideClipPath' + _kkk + ')');
+            setTimeout(function(){
+                // Enable event propagation again
+                T.pg.classed('svgColPicEventNone', false);
+            }, 500);
+
+            // Show half-up and hide half-down
+            T.centerHalf('colPicCenterUpHalf', -90, 270);
+            T.centerHalf('colPicCenterDownHalf', 90, 90);
+        };
+
+        T.init();
+        T.drawColorBand();
+        T.drawImage();
+        T.drawCenter();
+        T.drawControls();
+
+        // To accept manual color change. _color = transparent, #fefefe, rgb(...
+        _applInputControl.on('colorUpdatedByForce', function(_event, _color){
+            T.color = color2rgbaArray(_color);
+
+            var _hex = rgbToHex_1(T.color[0], T.color[1], T.color[2]);
+            T.setColor(_hex);
+
+            // Apply new opacity value
+            T.drawColorBand();
+            T.opacityControlMove();
+        });
+
+        _applInputControl.on('getColor', function(_event){
+            return T.color;
+        });
+
+        _applInputControl.on('getColorString', function(_event){
+            if(checkNullUndefinedSpace(T.color)) return 'transparent';
+            
+            if(T.color[0] <= 1 && T.color[1] <= 1 && T.color[2] <= 1 && T.color[3] < 0.1)
+                return 'transparent';
+            
+            return 'rgba(' + T.color.join(',') + ')';
+        });
+
+        _applInputControl.trigger('colorUpdatedByForce', _defaultRgba);
+        T.hide();
+    }
+
+</script>
+
+</body>
+</html>
