@@ -13,25 +13,20 @@ Here is the working example: (Link forwarded to imakeforms.com)
 
 <a href="http://blog.imakeforms.com/new color picker.html">New SVG color picker working example</a>
 
-
-
-
+  
 ## Dependencies
 - jQuery, d3 libraries are required
 
 - Private library which is including the modules to check NULL, convert color value to a different format and etc is not included as there are plenty of examples
 
-
-
-
+  
 ## Browser Support
 Tested ONLY under Chrome & FireFox
 
-
-
+  
 ## Contributors
 None
 
-
+  
 ## Copyright and license
 No copyright and license
