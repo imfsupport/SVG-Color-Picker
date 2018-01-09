@@ -5,7 +5,7 @@ Attaching a working example to make a SVG color picker.
 
 Below is an example image:
 
-<img src="http://blog.imakeforms.com/stylesAndImages/imfColorPicker_1.jpg" width="500"/>
+<img src="http://blog.imakeforms.com/stylesAndImages/imfColorPicker_1.jpg" width="700"/>
 
 
 
