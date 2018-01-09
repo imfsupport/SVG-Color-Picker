@@ -8,4 +8,4 @@ Below is an example image:
 
 [[https://github.com/imfsupport/repository/blob/master/imfColorPicker_1.jpg|alt=octocat]]
 
-<img src="http://blog.imakeforms.com/images/imfColorPicker_1.jpg" width="350"/>
+<img src="http://blog.imakeforms.com/images/colorPicker_1.jpg" width="350"/>
