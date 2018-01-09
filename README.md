@@ -7,3 +7,5 @@ Below is an example image:
 ![alt text](https://raw.githubusercontent.com/imfsupport/SVG-Color-Picker/master/to/img.png)
 
 [[https://github.com/imfsupport/repository/blob/master/imfColorPicker_1.jpg|alt=octocat]]
+
+<img src="http://blog.imakeforms.com/images/imfColorPicker_1.jpg" width="350"/>
