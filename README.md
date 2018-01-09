@@ -9,7 +9,7 @@ Below is an example image:
 
 
 
-Here is the working example: (Link forwarded to imakeforms.com)
+Here is the working example:
 
 <a href="http://blog.imakeforms.com/new color picker.html">New SVG color picker working example</a>
 
